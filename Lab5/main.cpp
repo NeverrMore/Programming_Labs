@@ -74,9 +74,6 @@ int main() {
             catch (EmptyStack& e){
                 printError(e);
             }
-
         }
-
-
     }
 }
