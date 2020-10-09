@@ -1,0 +1,165 @@
+using System;
+using System.Runtime.InteropServices;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.RegularExpressions;
+
+
+namespace OOPLab1_
+{
+    public class IniTypeException : Exception
+    {
+        public IniTypeException(string message, Exception innerException) : base(message, innerException) { }
+    }
+
+    public class IniUnknownPropertyException : Exception
+    {
+        public IniUnknownPropertyException(string propertyName) : base("Unable to find property with name " + propertyName) { }
+    }
+
+    public class IniUnknownSectionException : Exception
+    {
+        public IniUnknownSectionException(string sectionName) : base("Unable to find section with name " + sectionName) { }
+    }
+
+    public class IniParser
+    {
+        private string FileNameINI = null;
+        private Dictionary<string, Dictionary<string, string>> sections = new Dictionary<string, Dictionary<string, string>>();
+
+        public IniParser(string path)
+        {
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException("FILE NOT FOUND", path);
+            }
+
+            if (!path.Contains(".ini"))
+            {
+                throw new FileNotFoundException("WRONG FORMAT", path);
+            }
+
+            FileNameINI = path;
+
+            LoadINI();
+        }
+
+        void checkSection(string sectionName)
+        {
+            if (!sections.ContainsKey(sectionName))
+                throw new IniUnknownSectionException(sectionName);
+        }
+
+        void checkProperty(string sectionName, string propertyName)
+        {
+            checkSection(sectionName);
+
+            if (!sections.ContainsKey(propertyName))
+                throw new IniUnknownPropertyException(propertyName);
+        }
+
+        bool IsSection(string line)
+        {
+            return Regex.IsMatch(line, "\\[[a-zA-Z0-9_]*\\]");
+        }
+
+        void LoadINI()
+        {
+
+            IEnumerable<string> ListLine = File.ReadLines(FileNameINI);
+
+
+            if (ListLine == null)
+            {
+                throw new FileNotFoundException("FILE IS EMPTY");
+            }
+
+
+            foreach (var line in ListLine)
+            {
+                string SectionName = "";
+                string PropertyName = "";
+                string value = "";
+                string LastSection = "LastSection";
+                
+
+                if (line != "")
+                {
+                    if (line.Contains(";"))
+                    {
+                        line.Remove(line.IndexOf(";", StringComparison.Ordinal));
+                    }
+
+                    if (line.Length > 1)
+                    {
+                        if (IsSection(line))
+                        {
+                            Console.WriteLine(1);
+                            SectionName = line;
+                            SectionName = SectionName.Replace("[", "").Replace("]", "").Replace(" ", "");
+
+                            if (LastSection != SectionName)
+                            {
+                                sections.Add(LastSection, new Dictionary<string, string>());
+                                LastSection = SectionName;
+                            }
+                        }
+
+                        if (line.Contains("="))
+                        {
+                            int Index = line.IndexOf("=");
+                            if (Index != -1)
+                            {
+                                int LenStr = line.Length;
+                                PropertyName = line.Substring(0, Index++);
+                                LenStr -= Index;
+                                PropertyName = PropertyName.Replace(" ", "");
+                                value = line.Substring(Index, LenStr);
+                                value = value.Replace(" ", "");
+                                sections[SectionName].Add(PropertyName, value);
+                            }
+
+
+                        }
+                        
+                    }
+                }
+            }
+
+        }
+
+        public T Get<T>(string sectionName, string propertyName)
+        {
+            checkProperty(sectionName, propertyName);
+            string value = sections[sectionName][propertyName];
+            try
+            {
+                return (T)Convert.ChangeType(value, typeof(T));
+            }
+            catch (Exception exc)
+            {
+                throw new IniTypeException("Unable to convert " + value + " to " + typeof(T), exc);
+            }
+        }
+    }
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            IniParser myIniParser;
+            string path = @"/Users/macbook/Desktop/Programming/OOP/info.ini";
+
+            myIniParser = new IniParser(path);
+
+            string resultString = myIniParser.Get<string>("ADC_DEV", "Driver");
+            Console.WriteLine("\nDiskCachePath: " + resultString);
+
+            int resultInt = myIniParser.Get<int>("COMMON", "StatisterTimeMs");
+            Console.WriteLine("\nStatisterTimeMs: " + resultInt);
+
+            float resultFloat = myIniParser.Get<float>("LEGACY_XML", "ListenTcpPort");
+            Console.WriteLine("\nListenTcpPort: " + resultFloat);
+        }
+    }
+}
